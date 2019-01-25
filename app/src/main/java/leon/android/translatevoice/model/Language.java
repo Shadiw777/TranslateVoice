@@ -1,4 +1,4 @@
-package leon.android.translatevoice.Model;
+package leon.android.translatevoice.model;
 
 public class Language {
     private String titleOfLanguage;

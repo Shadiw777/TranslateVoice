@@ -1,18 +1,21 @@
-package leon.android.translatevoice.Adapter;
+package leon.android.translatevoice.adapter;
 
 import android.content.Context;
 import android.support.annotation.NonNull;
+import android.support.constraint.ConstraintLayout;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 
-import leon.android.translatevoice.Model.Language;
+import leon.android.translatevoice.model.Language;
 import leon.android.translatevoice.R;
 
 public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLanguageAdapter.ViewHolder> {
@@ -34,9 +37,9 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLang
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            Language language = mLanguageTextData.get(position);
-            holder.textViewFirstChoosenLanguage.setText(language.getTextOfLanguage());
-            holder.textViewSecondChoosenLanguage.setText(language.getTitleOfLanguage());
+        Language language = mLanguageTextData.get(position);
+        holder.bindTo(language);
+        holder.onExp();
     }
 
 
@@ -48,9 +51,18 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLang
 
     class ViewHolder extends RecyclerView.ViewHolder {
 
-        private TextView textViewFirstChoosenLanguage, textViewSecondChoosenLanguage, textViewSecondChoosenTranslateLanguage;
+        private TextView textViewFirstChoosenLanguage;
+        private TextView textViewSecondChoosenLanguage;
+        private TextView textViewSecondChoosenTranslateLanguage;
+
         private EditText editTextViewFirstChoosenTranslateLanguage;
+
         private ImageView imageViewFirstVolume, imageViewSecondVolume;
+        private ImageView imageViewLanguageOne;
+        private ImageView imageViewLanguageTwo;
+
+        private LinearLayout linearLayout;
+        private ConstraintLayout constraintLayout;
 
         public ViewHolder(View itemView) {
             super(itemView);
@@ -62,6 +74,30 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLang
             imageViewFirstVolume = (ImageView) itemView.findViewById(R.id.imageViewFirstVolume);
             imageViewSecondVolume = (ImageView) itemView.findViewById(R.id.imageViewSecondVolume);
 
+
+        }
+
+        private void bindTo(Language language) {
+            textViewFirstChoosenLanguage.setText(language.getTitleOfLanguage());
+            textViewSecondChoosenLanguage.setText(language.getTextOfLanguage());
+        }
+
+
+        private void onExp() {
+            linearLayout = (LinearLayout) itemView.findViewById(R.id.linearLayout);
+            constraintLayout = (ConstraintLayout) itemView.findViewById(R.id.constraintLayoutExp);
+            constraintLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (linearLayout.getVisibility() == View.GONE) {
+                        linearLayout.setVisibility(View.VISIBLE);
+                    } else {
+                        linearLayout.setVisibility(View.GONE);
+                    }
+                }
+            });
         }
     }
+
+
 }

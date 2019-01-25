@@ -1,4 +1,4 @@
-package leon.android.translatevoice.Translate;
+package leon.android.translatevoice.translate;
 
 
 import android.content.Context;
