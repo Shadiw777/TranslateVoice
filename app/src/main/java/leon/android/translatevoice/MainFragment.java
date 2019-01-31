@@ -2,6 +2,7 @@ package leon.android.translatevoice;
 
 import android.app.Fragment;
 import android.app.FragmentTransaction;
+import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.LinearLayoutManager;
@@ -13,6 +14,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.RadioButton;
@@ -27,7 +29,7 @@ import leon.android.translatevoice.model.Language;
 
 public class MainFragment extends Fragment implements View.OnClickListener, RadioGroup.OnCheckedChangeListener {
 
-    private ImageView mImageViewExpandMoreLanguage;
+    //private ImageView mImageViewExpandMoreLanguage;
     private ImageView imageViewLanguageOne;
     private ImageView imageViewLanguageTwo;
 
@@ -40,7 +42,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
     private RecyclerView mRecyclerView;
     private ArrayList<Language> mLanguageData;
     private TranslateLanguageAdapter mAdapter;
-
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,19 +71,26 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         rbGroup.setOnCheckedChangeListener(this);
 
         mRecyclerView = rootView.findViewById(R.id.recyclerViewText);
+        initRecyclerView();
+
+        return rootView;
+    }
+
+    private void initRecyclerView() {
 
         /* Reverse RecyclerView */
         LinearLayoutManager mLayoutManager = new LinearLayoutManager(getActivity());
-        mLayoutManager.setReverseLayout(true);
+        mLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+        mLayoutManager.setStackFromEnd(true);
+        mLayoutManager.setSmoothScrollbarEnabled(true);
 
+        mRecyclerView.setLayoutManager(mLayoutManager);
         mRecyclerView.setHasFixedSize(true);
         mRecyclerView.setLayoutManager(mLayoutManager);
         mLanguageData = new ArrayList<>();
         mAdapter = new TranslateLanguageAdapter(getActivity(), mLanguageData);
         mRecyclerView.setAdapter(mAdapter);
 
-
-        return rootView;
     }
 
 //        public void onExpandMoreLanguage(View view) {
@@ -106,7 +114,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                 transaction.replace(R.id.fragment_container, fragment);
                 transaction.addToBackStack(null);
                 transaction.commit();
-
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -118,8 +125,8 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         switch (v.getId()) {
             case R.id.imageViewLanguageOne:
                 if (rbText.isChecked()) {
-                    mLanguageData.add(new Language("RUS", "TEST"));
-                    mAdapter.notifyDataSetChanged();
+                    mAdapter.addItems(new Language("RUS", "ENG"));
+                    mRecyclerView.smoothScrollToPosition(mAdapter.getItemCount());
                 } else if (rbMicrophone.isChecked()) {
                     Toast.makeText(getActivity(), "RUS TEST", Toast.LENGTH_SHORT).show();
                 }
@@ -127,8 +134,8 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
 
             case R.id.imageViewLanguageTwo:
                 if (rbText.isChecked()) {
-                    mLanguageData.add(new Language("ENG", "TEST"));
-                    mAdapter.notifyDataSetChanged();
+                    mAdapter.addItems(new Language("ENG", "RUS"));
+                    mRecyclerView.smoothScrollToPosition(mAdapter.getItemCount());
                 } else if (rbMicrophone.isChecked()) {
                     Toast.makeText(getActivity(), "ENG TEST", Toast.LENGTH_SHORT).show();
                 }
