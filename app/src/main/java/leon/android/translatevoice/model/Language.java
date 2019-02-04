@@ -1,27 +1,27 @@
 package leon.android.translatevoice.model;
 
 public class Language {
-    private String titleOfLanguage;
-    private String textOfLanguage;
+    private String titleOfFirstLanguage;
+    private String titleOfSecondLanguage;
 
-    public Language(String titleOfLanguage, String textOfLanguage) {
-        this.titleOfLanguage = titleOfLanguage;
-        this.textOfLanguage = textOfLanguage;
+    public Language(String titleOfFirstLanguage, String titleOfSecondLanguage) {
+        this.titleOfFirstLanguage = titleOfFirstLanguage;
+        this.titleOfSecondLanguage = titleOfSecondLanguage;
     }
 
-    public String getTitleOfLanguage() {
-        return titleOfLanguage;
+    public String getTitleOfFirstLanguage() {
+        return titleOfFirstLanguage;
     }
 
-    public void setTitleOfLanguage(String titleOfLanguage) {
-        this.titleOfLanguage = titleOfLanguage;
+    public void setTitleOfFirstLanguage(String titleOfFirstLanguage) {
+        this.titleOfFirstLanguage = titleOfFirstLanguage;
     }
 
-    public String getTextOfLanguage() {
-        return textOfLanguage;
+    public String getTitleOfSecondLanguage() {
+        return titleOfSecondLanguage;
     }
 
-    public void setTextOfLanguage(String textOfLanguage) {
-        this.textOfLanguage = textOfLanguage;
+    public void setTitleOfSecondLanguage(String titleOfSecondLanguage) {
+        this.titleOfSecondLanguage = titleOfSecondLanguage;
     }
 }
