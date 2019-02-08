@@ -3,5 +3,11 @@
     <string name="title_home">Home</string>
     <string name="title_dashboard">Dashboard</string>
     <string name="title_notifications">Notifications</string>
+    <string name="sure">Are you sure you want to \n clear your conversation ?</string>
+    <string name="confirm">confirm</string>
+    <string name="cancel">cancel</string>
+    <string name="other">Other</string>
+    <string name="clear_conversation">Clear conversation</string>
+    <string name="report_a_bug_send_a_suggestion">Report a bug/Send a suggestion</string>
 
 </resources>
