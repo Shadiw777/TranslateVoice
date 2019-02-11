@@ -5,13 +5,13 @@ import android.content.Context;
 import android.os.SystemClock;
 
 public class JNIEX {
-    public JNIEX(){
+    public JNIEX() {
         double a = Math.random() * 4000;
         SystemClock.sleep(Math.round(a));
     }
 
     /**
-     * @param inputLanguage код языка из 2-3 символов (en, ru, fr, ro...)
+     * @param inputLanguage  код языка из 2-3 символов (en, ru, fr, ro...)
      * @param outputLanguage код языка из 2-3 символов (en, ru, fr, ro...)
      */
     public String translate(Context context, String inputLanguage, String outputLanguage, String inputText) {
