@@ -33,15 +33,18 @@
 
             <TextView
                 android:id="@+id/textViewFirstChoosenTranslateLanguage"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="12dp"
+                android:layout_marginEnd="8dp"
                 android:layout_marginBottom="10dp"
                 android:background="@android:color/transparent"
+                android:singleLine="false"
                 android:textColor="@android:color/black"
                 android:textSize="16sp"
                 app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/imageViewFirstVolume"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/textViewFirstChoosenLanguage" />
 
@@ -66,7 +69,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#f5f6ff"
-            android:onClick="onExp"
             tools:layout_editor_absoluteY="83dp">
 
             <TextView
@@ -85,18 +87,18 @@
 
             <TextView
                 android:id="@+id/textViewSecondChoosenTranslateLanguage"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="12dp"
-                android:layout_marginEnd="2dp"
+                android:layout_marginEnd="8dp"
                 android:layout_marginBottom="8dp"
+                android:singleLine="false"
                 android:textColor="@android:color/black"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.0"
+                app:layout_constraintEnd_toStartOf="@+id/imageViewSecondVolume"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/textViewSecondChoosenLanguage"
                 app:layout_constraintVertical_bias="1.0" />
@@ -133,7 +135,7 @@
                     android:layout_height="wrap_content">
 
                     <ImageView
-                        android:id="@+id/imageView3"
+                        android:id="@+id/imageViewShare"
                         android:layout_width="30dp"
                         android:layout_height="25dp"
                         android:layout_marginStart="50dp"
@@ -146,32 +148,32 @@
                         app:layout_constraintVertical_bias="0.0" />
 
                     <ImageView
-                        android:id="@+id/imageView2"
+                        android:id="@+id/imageViewCopy"
                         android:layout_width="30dp"
                         android:layout_height="25dp"
                         android:layout_marginStart="50dp"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="8dp"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintStart_toEndOf="@+id/imageView3"
+                        app:layout_constraintStart_toEndOf="@+id/imageViewShare"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintVertical_bias="0.0"
                         app:srcCompat="@drawable/ic_content_copy" />
 
                     <ImageView
-                        android:id="@+id/imageView4"
+                        android:id="@+id/imageViewMessage"
                         android:layout_width="30dp"
                         android:layout_height="25dp"
                         android:layout_marginStart="50dp"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="8dp"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintStart_toEndOf="@+id/imageView2"
+                        app:layout_constraintStart_toEndOf="@+id/imageViewCopy"
                         app:layout_constraintTop_toTopOf="parent"
                         app:srcCompat="@drawable/ic_message" />
 
                     <ImageView
-                        android:id="@+id/imageView5"
+                        android:id="@+id/imageViewTrash"
                         android:layout_width="30dp"
                         android:layout_height="25dp"
                         android:layout_marginStart="50dp"
@@ -180,7 +182,7 @@
                         android:layout_marginBottom="8dp"
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toEndOf="@+id/imageView4"
+                        app:layout_constraintStart_toEndOf="@+id/imageViewMessage"
                         app:layout_constraintTop_toTopOf="parent"
                         app:srcCompat="@drawable/ic_delete" />
 
@@ -192,13 +194,6 @@
 
 
         </android.support.constraint.ConstraintLayout>
-
-        <!--<ImageView-->
-        <!--android:id="@+id/imageViewAdBanner"-->
-        <!--android:layout_width="match_parent"-->
-        <!--android:layout_height="150dp"-->
-        <!--android:layout_marginTop="20dp"-->
-        <!--android:src="@drawable/example_ad" />-->
 
     </LinearLayout>
 

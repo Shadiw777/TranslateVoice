@@ -1,20 +1,19 @@
 package leon.android.translatevoice.adapter;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
+import android.speech.tts.TextToSpeech;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.widget.RecyclerView;
-import android.text.Editable;
-import android.text.TextUtils;
-import android.text.TextWatcher;
-import android.view.KeyEvent;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -23,42 +22,118 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
+import leon.android.translatevoice.database.LanguageContract;
+import leon.android.translatevoice.database.LanguageDBHelper;
 import leon.android.translatevoice.model.Language;
 import leon.android.translatevoice.R;
 
-public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLanguageAdapter.ViewHolder> {
+public class TranslateLanguageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
-    private List<Language> mLanguageData;
+    private List<Language> mLanguageData = new ArrayList<>();
     private Context mContext;
+    private OnRecyclerListener onRecyclerListener;
 
-    public TranslateLanguageAdapter(Context context, List<Language> mLanguageData) {
+    private static final int CONTENT_TYPE = 0;
+    private static final int AD_TYPE = 1;
+    private static final int AD_DELTA = 5;
+
+    SQLiteDatabase mDatabase;
+
+    private TextToSpeech textToSpeech;
+    private int result;
+
+
+    public TranslateLanguageAdapter(Context context, List<Language> mLanguageData, OnRecyclerListener onRecyclerListener, TextToSpeech textToSpeech, int result) {
         this.mLanguageData = mLanguageData;
         this.mContext = context;
+        this.onRecyclerListener = onRecyclerListener;
+        this.textToSpeech = textToSpeech;
+        this.result = result;
         setHasStableIds(true);
     }
 
+
     @NonNull
     @Override
-    public TranslateLanguageAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        return new ViewHolder(LayoutInflater.from(mContext).inflate(R.layout.list_translated_item, parent, false));
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == AD_TYPE) {
+            View itemView = LayoutInflater.from(mContext)
+                    .inflate(R.layout.banner_ad, parent, false);
+            return new AdViewHolder(itemView);
+        } else {
+            View itemView = LayoutInflater.from(mContext)
+                    .inflate(R.layout.list_translated_item, parent, false);
+            return new MainViewHolder(itemView, onRecyclerListener);
+        }
     }
 
     @Override
-    public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
-        final Language language = mLanguageData.get(position);
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        if (getItemViewType(position) == CONTENT_TYPE) {
+            MainViewHolder baseholder = (MainViewHolder) holder;
+            Language language = mLanguageData.get(getRealPosition(position));
 
-        holder.textViewFirstChoosenLanguage.setText(language.getTitleOfFirstLanguage());
-        holder.textViewFirstChoosenTranslateLanguage.setText(language.getTextOfFirstLanguage());
-        holder.textViewSecondChoosenLanguage.setText(language.getTitleOfSecondLanguage());
-        holder.textViewSecondChoosenTranslateLanguage.setText(language.getTextOfSecondLanguage());
+            baseholder.textViewFirstChoosenLanguage.setText(language.getTitleOfFirstLanguage());
+            baseholder.textViewFirstChoosenTranslateLanguage.setText(language.getTextOfFirstLanguage());
+            baseholder.textViewSecondChoosenLanguage.setText(language.getTitleOfSecondLanguage());
+            baseholder.textViewSecondChoosenTranslateLanguage.setText(language.getTextOfSecondLanguage());
 
-        holder.onExp();
+            baseholder.imageViewShare.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.putExtra(Intent.EXTRA_TEXT, "Исходный текст: " + baseholder.textViewFirstChoosenTranslateLanguage.getText().toString() + "\n"
+                            + "Переведённый текст: " + baseholder.textViewSecondChoosenTranslateLanguage.getText().toString());
+                    intent.setType("text/plain");
+                    mContext.startActivity(Intent.createChooser(intent, "Send To"));
+                }
+            });
+
+            baseholder.imageViewCopy.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    ClipboardManager clipboard = (ClipboardManager) mContext.getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText("Translated text", baseholder.textViewSecondChoosenTranslateLanguage.getText().toString());
+                    clipboard.setPrimaryClip(clip);
+                    Toast.makeText(mContext, "Hey you copy " + clip.toString(), Toast.LENGTH_SHORT).show();
+                }
+            });
+
+            baseholder.imageViewMessage.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Uri uri = Uri.parse("smsto:0800000123");
+                    Intent intent = new Intent(Intent.ACTION_SENDTO, uri);
+                    intent.putExtra("sms_body", baseholder.textViewSecondChoosenTranslateLanguage.getText().toString());
+                    mContext.startActivity(intent);
+                }
+            });
+
+
+            baseholder.onExp();
+
+        } else if (getItemViewType(position) == AD_TYPE) {
+            ((AdViewHolder) holder).imageViewAdBanner.setImageResource(R.drawable.example_ad);
+            holder.getAdapterPosition();
+        }
     }
 
 
     @Override
     public int getItemCount() {
-        return mLanguageData.size();
+        int content = 0;
+        if (mLanguageData.size() > 0 && AD_DELTA > 0 && mLanguageData.size() > AD_DELTA) {
+            content = (mLanguageData.size() + (mLanguageData.size() / AD_DELTA)) / AD_DELTA;
+        }
+        return mLanguageData.size() + content;
+    }
+
+    private int getRealPosition(int position) {
+        if (AD_DELTA == 0) {
+            return position;
+        } else {
+            return position - position / AD_DELTA;
+        }
     }
 
     @Override
@@ -68,18 +143,30 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLang
 
     @Override
     public int getItemViewType(int position) {
-        return position;
+        if (position > 0 && position % AD_DELTA == 0) {
+            return AD_TYPE;
+        }
+        return CONTENT_TYPE;
     }
 
     public void addItems(Language language) {
-        if (mLanguageData == null)
-            mLanguageData = new ArrayList<>();
         mLanguageData.add(language);
         notifyItemInserted(mLanguageData.size() + 1);
     }
 
+    class AdViewHolder extends RecyclerView.ViewHolder {
+        ImageView imageViewAdBanner;
 
-    class ViewHolder extends RecyclerView.ViewHolder {
+        public AdViewHolder(View items) {
+            super(items);
+            // this.imageViewAdBanner = (ImageView) itemView.findViewById(R.id.imageViewAdBanner);
+            imageViewAdBanner = items.findViewById(R.id.imageViewAdBanner);
+
+        }
+    }
+
+
+    class MainViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
         private TextView textViewFirstChoosenLanguage;
         private TextView textViewFirstChoosenTranslateLanguage;
@@ -92,9 +179,16 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLang
         private LinearLayout linearLayout;
         private ConstraintLayout constraintLayout;
 
+        private ImageView imageViewShare;
+        private ImageView imageViewCopy;
+        private ImageView imageViewMessage;
+        private ImageView imageViewTrash;
 
-        public ViewHolder(View itemView) {
+        OnRecyclerListener onRecyclerListener;
+
+        public MainViewHolder(View itemView, OnRecyclerListener onRecyclerListener) {
             super(itemView);
+            this.onRecyclerListener = onRecyclerListener;
 
             textViewFirstChoosenLanguage = (TextView) itemView.findViewById(R.id.textViewFirstChoosenLanguage);
             textViewSecondChoosenLanguage = (TextView) itemView.findViewById(R.id.textViewSecondChoosenLanguage);
@@ -103,7 +197,16 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLang
 
             imageViewFirstVolume = (ImageView) itemView.findViewById(R.id.imageViewFirstVolume);
             imageViewSecondVolume = (ImageView) itemView.findViewById(R.id.imageViewSecondVolume);
+
+            imageViewShare = itemView.findViewById(R.id.imageViewShare);
+            imageViewCopy = itemView.findViewById(R.id.imageViewCopy);
+            imageViewMessage = itemView.findViewById(R.id.imageViewMessage);
+            imageViewTrash = itemView.findViewById(R.id.imageViewTrash);
+
+            imageViewFirstVolume.setOnClickListener(this);
+            imageViewSecondVolume.setOnClickListener(this);
         }
+
 
         private void onExp() {
             linearLayout = (LinearLayout) itemView.findViewById(R.id.linearLayout);
@@ -119,6 +222,25 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<TranslateLang
                 }
             });
         }
+
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()) {
+                case R.id.imageViewFirstVolume:
+                    onRecyclerListener.firstVolumeClick(getAdapterPosition());
+                    break;
+                case R.id.imageViewSecondVolume:
+                    onRecyclerListener.secondVolumeClick(getAdapterPosition());
+                    break;
+            }
+        }
+    }
+
+    public interface OnRecyclerListener {
+
+        void firstVolumeClick(int position);
+
+        void secondVolumeClick(int position);
 
     }
 

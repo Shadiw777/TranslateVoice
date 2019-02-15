@@ -2,14 +2,17 @@ package leon.android.translatevoice;
 
 import android.app.Fragment;
 import android.app.FragmentTransaction;
+import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.os.AsyncTask;
 import android.os.Bundle;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.LinearLayoutManager;
@@ -18,14 +21,13 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -37,8 +39,10 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import leon.android.translatevoice.adapter.TranslateLanguageAdapter;
+import leon.android.translatevoice.common.Common;
 import leon.android.translatevoice.database.LanguageContract;
 import leon.android.translatevoice.database.LanguageDBHelper;
 import leon.android.translatevoice.model.Language;
@@ -47,10 +51,12 @@ import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action0;
 import rx.functions.Action1;
-import rx.functions.Func1;
+import rx.functions.Func0;
 import rx.schedulers.Schedulers;
 
-public class MainFragment extends Fragment implements View.OnClickListener, RadioGroup.OnCheckedChangeListener {
+import static android.app.Activity.RESULT_OK;
+
+public class MainFragment extends Fragment implements View.OnClickListener, RadioGroup.OnCheckedChangeListener, TranslateLanguageAdapter.OnRecyclerListener, IOnBackPressed {
 
     //private ImageView mImageViewExpandMoreLanguage;
     private ImageView imageViewLanguageOne;
@@ -76,10 +82,20 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
     private EditText editTextViewOfChoosenLanguage;
     private ImageView imageViewApply;
 
+    private int result;
+    private String translate = null;
+    private String text_trans = null;
+
+    private TextToSpeech textToSpeech;
+
     /*Класс перевода */
     JNIEX jniex;
 
     Language language = new Language();
+
+    List<Language> listOfLanguages = new ArrayList<Language>();
+
+
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -121,12 +137,28 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         mRecyclerView = rootView.findViewById(R.id.recyclerViewText);
         initRecyclerView();
 
+
+        textToSpeech = new TextToSpeech(getActivity(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+
+                if (status == TextToSpeech.SUCCESS) {
+                    int result = textToSpeech.setLanguage(Locale.getDefault());
+                    if (result == TextToSpeech.LANG_MISSING_DATA
+                            || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        Log.e("TTS", "Language not supported");
+                    }
+                } else {
+                    Log.e("TTS", "Initialization failed");
+                }
+            }
+        });
+
         return rootView;
     }
 
 
     private void initRecyclerView() {
-
         /* Reverse RecyclerView */
         LinearLayoutManager mLayoutManager = new LinearLayoutManager(getActivity());
         mLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
@@ -137,8 +169,8 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         mRecyclerView.setHasFixedSize(true);
         mRecyclerView.setLayoutManager(mLayoutManager);
         List mLanguageData = getElements();
-        // List mLanguageData = new ArrayList();
-        mAdapter = new TranslateLanguageAdapter(getActivity(), mLanguageData);
+        mAdapter = new TranslateLanguageAdapter(getActivity(), mLanguageData, this, textToSpeech, result);
+        mRecyclerView.setItemViewCacheSize(12);
         mRecyclerView.setAdapter(mAdapter);
 
     }
@@ -155,16 +187,12 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
 
             case R.id.imageViewLanguageOne:
                 if (rbText.isChecked()) {
-                    jniex = new JNIEX();
                     textViewOfChoosenLanguage.setText("RUS");
                     initText();
-
                     imageViewApply.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-                            ConnectivityManager cm = (ConnectivityManager) getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
-                            NetworkInfo networkInfo = cm.getActiveNetworkInfo();
-                            if (networkInfo != null && networkInfo.isConnected()) {
+                            if (Common.isConnectedToInternet(getActivity())) {
                                 startAsyckTask("RUS", "ENG", "ru", "en");
                             } else {
                                 Toast.makeText(getActivity(), "You are not connected to Internet", Toast.LENGTH_SHORT).show();
@@ -174,21 +202,20 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                     });
 
                 } else if (rbMicrophone.isChecked()) {
+
                     Toast.makeText(getActivity(), "RUS TEST", Toast.LENGTH_SHORT).show();
+
                 }
                 break;
 
             case R.id.imageViewLanguageTwo:
                 if (rbText.isChecked()) {
-                    jniex = new JNIEX();
                     textViewOfChoosenLanguage.setText("ENG");
                     initText();
                     imageViewApply.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-                            ConnectivityManager cm = (ConnectivityManager) getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
-                            NetworkInfo networkInfo = cm.getActiveNetworkInfo();
-                            if (networkInfo != null && networkInfo.isConnected()) {
+                            if (Common.isConnectedToInternet(getActivity())) {
                                 startAsyckTask("ENG", "RUS", "en", "ru");
                             } else {
                                 Toast.makeText(getActivity(), "You are not connected to Internet", Toast.LENGTH_SHORT).show();
@@ -205,6 +232,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                 break;
         }
     }
+
 
     private void initText() {
         cardViewInputText.setVisibility(View.VISIBLE);
@@ -236,7 +264,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         });
     }
 
-
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
@@ -258,9 +285,8 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         }
     }
 
-
     public List<Language> getElements() {
-        List<Language> languages = new ArrayList<Language>();
+        listOfLanguages = new ArrayList<Language>();
 
         Cursor c = mDatabase.query(LanguageContract.LanguageEntry.TABLE_NAME, null, null, null, null, null, null);
 
@@ -276,10 +302,12 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                 obj.setTitleOfSecondLanguage(c.getString(idCol2));
                 obj.setTextOfFirstLanguage(c.getString(idCol1));
                 obj.setTextOfSecondLanguage(c.getString(idCol3));
-                languages.add(obj);
+                listOfLanguages.add(obj);
             } while (c.moveToNext());
         }
-        return languages;
+
+        c.close();
+        return listOfLanguages;
     }
 
     /*Смена текста в textView при нажатие на radionButton-ны */
@@ -292,15 +320,13 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         }
     }
 
-
     private void startAsyckTask(String titleOfFirstLanguage, String titleOfSecondLanguage, String languageTranslateOne, String languageTranslateTwo) {
-        Observable.just(doInBackground(titleOfFirstLanguage, titleOfSecondLanguage, languageTranslateOne, languageTranslateTwo))
-                .map(new Func1<Object, Object>() {
-                    @Override
-                    public Object call(Object o) {
-                        return doInBackground(titleOfFirstLanguage, titleOfSecondLanguage, languageTranslateOne, languageTranslateTwo);
-                    }
-                })
+        Observable.defer(new Func0<Observable<Integer>>() {
+            @Override
+            public Observable<Integer> call() {
+                return Observable.just(doInBackground(titleOfFirstLanguage, titleOfSecondLanguage, languageTranslateOne, languageTranslateTwo));
+            }
+        })
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnSubscribe(new Action0() {
@@ -324,34 +350,88 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
 
         /*Закрытие клавиатуры */
         InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-        imm.hideSoftInputFromWindow(textViewOfChoosenLanguage.getWindowToken(), 0);
+        imm.toggleSoftInput(InputMethodManager.HIDE_IMPLICIT_ONLY, 0);
 
         /*Карточка уходит */
         cardViewInputText.setVisibility(View.GONE);
     }
 
     private int doInBackground(String titleOfFirstLanguage, String titleOfSecondLanguage, String languageTranslateOne, String languageTranslateTwo) {
-        String translate = jniex.translate(getActivity(), languageTranslateOne, languageTranslateTwo, editTextViewOfChoosenLanguage.getText().toString());
+        language = new Language();
+        jniex = new JNIEX();
+        text_trans = editTextViewOfChoosenLanguage.getText().toString();
+        translate = jniex.translate(getActivity(), languageTranslateOne, languageTranslateTwo, text_trans);
         language.setTitleOfFirstLanguage(titleOfFirstLanguage);
         language.setTitleOfSecondLanguage(titleOfSecondLanguage);
-        language.setTextOfFirstLanguage(editTextViewOfChoosenLanguage.getText().toString());
+        language.setTextOfFirstLanguage(text_trans);
         language.setTextOfSecondLanguage(translate);
 
         ContentValues contentValues = new ContentValues();
         contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE, titleOfFirstLanguage);
-        contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE_TEXT, editTextViewOfChoosenLanguage.getText().toString());
+        contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE_TEXT, text_trans);
         contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSALATED_LANGUAGE, titleOfSecondLanguage);
         contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSLATED_LANGUAGE_TEXT, translate);
         mDatabase.insert(LanguageContract.LanguageEntry.TABLE_NAME, null, contentValues);
-
         return 0;
     }
 
     private void onPostExecute() {
         progressBar.setVisibility(View.GONE);
         textViewFlags.setVisibility(View.VISIBLE);
-        mRecyclerView.smoothScrollToPosition(mAdapter.getItemCount());
         mAdapter.addItems(language);
+        mRecyclerView.smoothScrollToPosition(mAdapter.getItemCount());
     }
+
+    @Override
+    public void firstVolumeClick(int position) {
+        if (result == TextToSpeech.LANG_NOT_SUPPORTED || result == TextToSpeech.LANG_MISSING_DATA) {
+            Toast.makeText(getActivity(), "Feature Not Support in your Device", Toast.LENGTH_LONG).show();
+        } else {
+            try {
+                textToSpeech.speak(listOfLanguages.get(position).getTextOfFirstLanguage(), TextToSpeech.QUEUE_FLUSH, null);
+            } catch (IndexOutOfBoundsException e) {
+                textToSpeech.speak(listOfLanguages.get(position - 1).getTextOfFirstLanguage(), TextToSpeech.QUEUE_FLUSH, null);
+            }
+        }
+
+    }
+
+    @Override
+    public void secondVolumeClick(int position) {
+        if (result == TextToSpeech.LANG_NOT_SUPPORTED || result == TextToSpeech.LANG_MISSING_DATA) {
+            Toast.makeText(getActivity(), "Feature Not Support in your Device", Toast.LENGTH_LONG).show();
+        } else {
+            try {
+                textToSpeech.speak(listOfLanguages.get(position).getTextOfSecondLanguage(), TextToSpeech.QUEUE_FLUSH, null);
+            } catch (IndexOutOfBoundsException e) {
+                textToSpeech.speak(listOfLanguages.get(position - 1).getTextOfSecondLanguage(), TextToSpeech.QUEUE_FLUSH, null);
+            }
+        }
+    }
+
+
+    @Override
+    public void onDestroy() {
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+        super.onDestroy();
+
+        mDatabase.close();
+    }
+
+    @Override
+    public boolean onBackPressed() {
+        boolean myCondition = true;
+        if (myCondition) {
+            cardViewInputText.setVisibility(View.GONE);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
 }
 
