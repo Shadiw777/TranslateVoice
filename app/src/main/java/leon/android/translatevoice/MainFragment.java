@@ -1,19 +1,28 @@
 package leon.android.translatevoice;
 
+import android.Manifest;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -36,6 +45,13 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.karumi.dexter.Dexter;
+import com.karumi.dexter.PermissionToken;
+import com.karumi.dexter.listener.PermissionDeniedResponse;
+import com.karumi.dexter.listener.PermissionGrantedResponse;
+import com.karumi.dexter.listener.PermissionRequest;
+import com.karumi.dexter.listener.single.PermissionListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,6 +111,12 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
 
     List<Language> listOfLanguages = new ArrayList<Language>();
 
+    /*Speech To Text */
+    private SpeechRecognizer speech = null;
+    private Intent recognizerIntent;
+    private String LOG_TAG = "VoiceRecognitionActivity";
+    private static final int REQUEST_RECORD_PERMISSION = 100;
+    SpeechToText speechToText;
 
 
     @Override
@@ -137,7 +159,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         mRecyclerView = rootView.findViewById(R.id.recyclerViewText);
         initRecyclerView();
 
-
         textToSpeech = new TextToSpeech(getActivity(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -153,6 +174,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                 }
             }
         });
+
 
         return rootView;
     }
@@ -202,9 +224,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                     });
 
                 } else if (rbMicrophone.isChecked()) {
-
-                    Toast.makeText(getActivity(), "RUS TEST", Toast.LENGTH_SHORT).show();
-
+                    requestMicroPermission("ru", "en", "RUS", "ENG");
                 }
                 break;
 
@@ -224,12 +244,74 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                         }
                     });
                 } else if (rbMicrophone.isChecked()) {
-                    Toast.makeText(getActivity(), "ENG TEST", Toast.LENGTH_SHORT).show();
+                    requestMicroPermission("en", "ru", "ENG", "RUS");
                 }
                 break;
 
             default:
                 break;
+        }
+    }
+
+    /*Запрашиваем разрешения на микрофон */
+    private void requestMicroPermission(String langOne, String langTwo, String nameofFirstLang, String nameOfSecondLang) {
+        Dexter.withActivity(getActivity())
+                .withPermission(Manifest.permission.RECORD_AUDIO)
+                .withListener(new PermissionListener() {
+                    @Override
+                    public void onPermissionGranted(PermissionGrantedResponse response) {
+                        initSpeechToText(langOne, langTwo, nameofFirstLang, nameOfSecondLang);
+                    }
+
+                    @Override
+                    public void onPermissionDenied(PermissionDeniedResponse response) {
+                        if (response.isPermanentlyDenied()) {
+                            showSettingsDialog();
+                        }
+                    }
+
+                    @Override
+                    public void onPermissionRationaleShouldBeShown(PermissionRequest permission, PermissionToken token) {
+                        token.continuePermissionRequest();
+                    }
+                }).check();
+    }
+
+    private void showSettingsDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        builder.setTitle("Need Permissions");
+        builder.setMessage("This app needs permission to use this feature. You can grant them in app settings.");
+        builder.setPositiveButton("GOTO SETTINGS", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+                openSettings();
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+        builder.show();
+    }
+
+    private void openSettings() {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        Uri uri = Uri.fromParts("package", getActivity().getPackageName(), null);
+        intent.setData(uri);
+        startActivityForResult(intent, 101);
+    }
+
+    private void initSpeechToText(String langOne, String langTwo, String nameofFirstLang, String nameOfSecondLang) {
+        if (Common.isConnectedToInternet(getActivity())) {
+            speechToText = new SpeechToText(langOne, langTwo, nameofFirstLang, nameOfSecondLang);
+            speechToText.initSpeechToText();
+            speech.startListening(recognizerIntent);
+            textViewOfChoosenLanguage.setText(nameofFirstLang);
+        } else {
+            Toast.makeText(getActivity(), "You are not connected to Internet", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -409,7 +491,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         }
     }
 
-
     @Override
     public void onDestroy() {
         if (textToSpeech != null) {
@@ -426,12 +507,125 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         boolean myCondition = true;
         if (myCondition) {
             cardViewInputText.setVisibility(View.GONE);
+            if (speech != null) {
+                speech.cancel();
+            }
             return true;
         } else {
             return false;
         }
+
     }
 
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (speech != null) {
+            speech.destroy();
+            cardViewInputText.setVisibility(View.GONE);
+            Log.i(LOG_TAG, "destroy");
+        }
+    }
 
+    class SpeechToText implements RecognitionListener {
+        String languageOne = null;
+        String languageTwo = null;
+        String nameOfFirstLanguage = null;
+        String nameOfSecondLanguage = null;
+
+        public SpeechToText(String languageOne, String languageTwo, String nameOfFirstLanguage, String nameOfSecondLanguage) {
+            this.languageOne = languageOne;
+            this.languageTwo = languageTwo;
+            this.nameOfFirstLanguage = nameOfFirstLanguage;
+            this.nameOfSecondLanguage = nameOfSecondLanguage;
+        }
+
+        private void initSpeechToText() {
+            speech = SpeechRecognizer.createSpeechRecognizer(getActivity());
+            Log.i(LOG_TAG, "isRecognitionAvailable: " + SpeechRecognizer.isRecognitionAvailable(getActivity()));
+            speech.setRecognitionListener(this);
+            recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en");
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        }
+
+        @Override
+        public void onReadyForSpeech(Bundle params) {
+            Log.i(LOG_TAG, "onReadyForSpeech");
+            cardViewInputText.setVisibility(View.VISIBLE);
+            imageViewApply.setVisibility(View.INVISIBLE);
+            editTextViewOfChoosenLanguage.setText("");
+        }
+
+        @Override
+        public void onBeginningOfSpeech() {
+
+        }
+
+        @Override
+        public void onRmsChanged(float rmsdB) {
+
+        }
+
+        @Override
+        public void onBufferReceived(byte[] buffer) {
+
+        }
+
+        @Override
+        public void onEndOfSpeech() {
+            Log.i(LOG_TAG, "onEndOfSpeech");
+            cardViewInputText.setVisibility(View.GONE);
+            textViewFlags.setVisibility(View.INVISIBLE);
+            progressBar.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        public void onError(int error) {
+
+        }
+
+        @Override
+        public void onResults(Bundle results) {
+            jniex = new JNIEX();
+            Log.i(LOG_TAG, "onResults");
+            ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            String trns_text = matches.get(0);
+            translate = jniex.translate(getActivity(), languageOne, languageTwo, trns_text);
+
+            language.setTextOfFirstLanguage(trns_text);
+            language.setTextOfSecondLanguage(translate);
+            language.setTitleOfFirstLanguage(nameOfFirstLanguage);
+            language.setTitleOfSecondLanguage(nameOfSecondLanguage);
+
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE, nameOfFirstLanguage);
+            contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE_TEXT, trns_text);
+            contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSALATED_LANGUAGE, nameOfSecondLanguage);
+            contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSLATED_LANGUAGE_TEXT, translate);
+            mDatabase.insert(LanguageContract.LanguageEntry.TABLE_NAME, null, contentValues);
+
+            mAdapter.addItems(language);
+            mRecyclerView.smoothScrollToPosition(mAdapter.getItemCount());
+            progressBar.setVisibility(View.INVISIBLE);
+            textViewFlags.setVisibility(View.VISIBLE);
+            imageViewApply.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        public void onPartialResults(Bundle partialResults) {
+            ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            if (matches != null) {
+                editTextViewOfChoosenLanguage.setText(matches.get(0));
+            }
+        }
+
+        @Override
+        public void onEvent(int eventType, Bundle params) {
+
+        }
+    }
 }
 
