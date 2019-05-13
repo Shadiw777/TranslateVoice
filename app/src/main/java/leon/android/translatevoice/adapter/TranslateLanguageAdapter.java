@@ -109,6 +109,22 @@ public class TranslateLanguageAdapter extends RecyclerView.Adapter<RecyclerView.
                 }
             });
 
+            //TODO Сделать удаление элемента из бд(удаляется только если была кликнута сначала 1 позиция)
+            baseholder.imageViewTrash.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    LanguageDBHelper db = new LanguageDBHelper(v.getContext());
+                    mDatabase = db.getWritableDatabase();
+                    mDatabase.execSQL("DELETE FROM " + LanguageContract.LanguageEntry.TABLE_NAME + " WHERE " + position + ";");
+                    mDatabase.delete(LanguageContract.LanguageEntry.TABLE_NAME, LanguageContract.LanguageEntry._ID + " =? ", new String[]{String.valueOf(position)});
+                    mDatabase.close();
+                    mLanguageData.remove(position);
+                    notifyItemRemoved(position);
+                    notifyItemRangeChanged(position, mLanguageData.size());
+
+                }
+            });
+
 
             baseholder.onExp();
 

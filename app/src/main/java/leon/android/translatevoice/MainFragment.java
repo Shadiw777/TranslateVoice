@@ -3,12 +3,10 @@ package leon.android.translatevoice;
 import android.Manifest;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
-import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
@@ -18,10 +16,7 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.LinearLayoutManager;
@@ -34,7 +29,6 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
@@ -53,6 +47,13 @@ import com.karumi.dexter.listener.PermissionGrantedResponse;
 import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.single.PermissionListener;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -63,6 +64,7 @@ import leon.android.translatevoice.database.LanguageContract;
 import leon.android.translatevoice.database.LanguageDBHelper;
 import leon.android.translatevoice.model.Language;
 import leon.android.translatevoice.translate.JNIEX;
+import leon.android.translatevoice.init.Init;
 import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action0;
@@ -70,11 +72,11 @@ import rx.functions.Action1;
 import rx.functions.Func0;
 import rx.schedulers.Schedulers;
 
-import static android.app.Activity.RESULT_OK;
+import static leon.android.translatevoice.init.Init.languagePairEn;
+import static leon.android.translatevoice.init.Init.languagePairRu;
 
 public class MainFragment extends Fragment implements View.OnClickListener, RadioGroup.OnCheckedChangeListener, TranslateLanguageAdapter.OnRecyclerListener, IOnBackPressed {
 
-    //private ImageView mImageViewExpandMoreLanguage;
     private ImageView imageViewLanguageOne;
     private ImageView imageViewLanguageTwo;
 
@@ -115,7 +117,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
     private SpeechRecognizer speech = null;
     private Intent recognizerIntent;
     private String LOG_TAG = "VoiceRecognitionActivity";
-    private static final int REQUEST_RECORD_PERMISSION = 100;
     SpeechToText speechToText;
 
 
@@ -124,7 +125,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
     }
-
 
     @Nullable
     @Override
@@ -179,7 +179,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         return rootView;
     }
 
-
     private void initRecyclerView() {
         /* Reverse RecyclerView */
         LinearLayoutManager mLayoutManager = new LinearLayoutManager(getActivity());
@@ -197,12 +196,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
 
     }
 
-//        public void onExpandMoreLanguage(View view) {
-//        LanguageBottomSheetFragment languageBottomSheetFragment = new LanguageBottomSheetFragment();
-//        languageBottomSheetFragment.show(getSupportFragmentManager(), languageBottomSheetFragment.getTag());
-//    }
-
-
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
@@ -215,7 +208,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                         @Override
                         public void onClick(View v) {
                             if (Common.isConnectedToInternet(getActivity())) {
-                                startAsyckTask("RUS", "ENG", "ru", "en");
+                                startAsyckTask("RUS", "ENG", "ru", "en", languagePairRu);
                             } else {
                                 Toast.makeText(getActivity(), "You are not connected to Internet", Toast.LENGTH_SHORT).show();
                             }
@@ -225,6 +218,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
 
                 } else if (rbMicrophone.isChecked()) {
                     requestMicroPermission("ru", "en", "RUS", "ENG");
+                    Toast.makeText(getActivity(), "Need TODO", Toast.LENGTH_SHORT).show();
                 }
                 break;
 
@@ -236,7 +230,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                         @Override
                         public void onClick(View v) {
                             if (Common.isConnectedToInternet(getActivity())) {
-                                startAsyckTask("ENG", "RUS", "en", "ru");
+                                startAsyckTask("ENG", "RUS", "en", "ru", languagePairEn);
                             } else {
                                 Toast.makeText(getActivity(), "You are not connected to Internet", Toast.LENGTH_SHORT).show();
                             }
@@ -245,6 +239,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                     });
                 } else if (rbMicrophone.isChecked()) {
                     requestMicroPermission("en", "ru", "ENG", "RUS");
+                    Toast.makeText(getActivity(), "Need TODO", Toast.LENGTH_SHORT).show();
                 }
                 break;
 
@@ -260,7 +255,14 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
                 .withListener(new PermissionListener() {
                     @Override
                     public void onPermissionGranted(PermissionGrantedResponse response) {
-                        initSpeechToText(langOne, langTwo, nameofFirstLang, nameOfSecondLang);
+                        if (Common.isConnectedToInternet(getActivity())) {
+                            speechToText = new SpeechToText(langOne, langTwo, nameofFirstLang, nameOfSecondLang);
+                            speechToText.initSpeechToText();
+                            speech.startListening(recognizerIntent);
+                            textViewOfChoosenLanguage.setText(nameofFirstLang);
+                        } else {
+                            Toast.makeText(getActivity(), "You are not connected to Internet", Toast.LENGTH_SHORT).show();
+                        }
                     }
 
                     @Override
@@ -303,18 +305,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         intent.setData(uri);
         startActivityForResult(intent, 101);
     }
-
-    private void initSpeechToText(String langOne, String langTwo, String nameofFirstLang, String nameOfSecondLang) {
-        if (Common.isConnectedToInternet(getActivity())) {
-            speechToText = new SpeechToText(langOne, langTwo, nameofFirstLang, nameOfSecondLang);
-            speechToText.initSpeechToText();
-            speech.startListening(recognizerIntent);
-            textViewOfChoosenLanguage.setText(nameofFirstLang);
-        } else {
-            Toast.makeText(getActivity(), "You are not connected to Internet", Toast.LENGTH_SHORT).show();
-        }
-    }
-
 
     private void initText() {
         cardViewInputText.setVisibility(View.VISIBLE);
@@ -368,7 +358,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
     }
 
     public List<Language> getElements() {
-        listOfLanguages = new ArrayList<Language>();
+        listOfLanguages = new ArrayList<>();
 
         Cursor c = mDatabase.query(LanguageContract.LanguageEntry.TABLE_NAME, null, null, null, null, null, null);
 
@@ -402,11 +392,11 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         }
     }
 
-    private void startAsyckTask(String titleOfFirstLanguage, String titleOfSecondLanguage, String languageTranslateOne, String languageTranslateTwo) {
-        Observable.defer(new Func0<Observable<Integer>>() {
+    private void startAsyckTask(String titleOfFirstLanguage, String titleOfSecondLanguage, String languageTranslateOne, String languageTranslateTwo, String languagePair) {
+        Observable.defer(new Func0<Observable<String>>() {
             @Override
-            public Observable<Integer> call() {
-                return Observable.just(doInBackground(titleOfFirstLanguage, titleOfSecondLanguage, languageTranslateOne, languageTranslateTwo));
+            public Observable<String> call() {
+                return Observable.just(doInBackground(titleOfFirstLanguage, titleOfSecondLanguage, languageTranslateOne, languageTranslateTwo, languagePair));
             }
         })
                 .subscribeOn(Schedulers.io())
@@ -438,26 +428,74 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         cardViewInputText.setVisibility(View.GONE);
     }
 
-    private int doInBackground(String titleOfFirstLanguage, String titleOfSecondLanguage, String languageTranslateOne, String languageTranslateTwo) {
-        language = new Language();
-        jniex = new JNIEX();
-        text_trans = editTextViewOfChoosenLanguage.getText().toString();
-        translate = jniex.translate(getActivity(), languageTranslateOne, languageTranslateTwo, text_trans);
-        language.setTitleOfFirstLanguage(titleOfFirstLanguage);
-        language.setTitleOfSecondLanguage(titleOfSecondLanguage);
-        language.setTextOfFirstLanguage(text_trans);
-        language.setTextOfSecondLanguage(translate);
+    private String doInBackground(String titleOfFirstLanguage, String titleOfSecondLanguage, String languageTranslateOne, String languageTranslateTwo, String languagePair) {
 
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE, titleOfFirstLanguage);
-        contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE_TEXT, text_trans);
-        contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSALATED_LANGUAGE, titleOfSecondLanguage);
-        contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSLATED_LANGUAGE_TEXT, translate);
-        mDatabase.insert(LanguageContract.LanguageEntry.TABLE_NAME, null, contentValues);
-        return 0;
+        language = new Language();
+        //  jniex = new JNIEX();
+        text_trans = editTextViewOfChoosenLanguage.getText().toString();
+        // translate = jniex.translate(getActivity(), languageTranslateOne, languageTranslateTwo, text_trans);
+
+        try {
+            String yandexUrl = "https://translate.yandex.net/api/v1.5/tr.json/translate?key=" + Init.yandexKey
+                    + "&text=" + text_trans + "&lang=" + languagePair;
+
+            URL yandexTranslateURL = new URL(yandexUrl);
+
+            //Set Http Connection, Input Stream, and Buffered Reader
+            HttpURLConnection httpJsonConnection = (HttpURLConnection) yandexTranslateURL.openConnection();
+            InputStream inputStream = httpJsonConnection.getInputStream();
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+
+            StringBuilder jsonStringBuilder = new StringBuilder();
+            while ((translate = bufferedReader.readLine()) != null) {
+                jsonStringBuilder.append(translate + "\n");
+
+
+                //Getting the characters between [ and ]
+                translate = translate.substring(translate.indexOf('[') + 1);
+                translate = translate.substring(0, translate.indexOf("]"));
+                //Getting the characters between " and "
+                translate = translate.substring(translate.indexOf("\"") + 1);
+                translate = translate.substring(0, translate.indexOf("\""));
+
+                language.setTitleOfFirstLanguage(titleOfFirstLanguage);
+                language.setTitleOfSecondLanguage(titleOfSecondLanguage);
+                language.setTextOfFirstLanguage(text_trans);
+                language.setTextOfSecondLanguage(translate);
+
+                /*Вставить в БД */
+                ContentValues contentValues = new ContentValues();
+                contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE, titleOfFirstLanguage);
+                contentValues.put(LanguageContract.LanguageEntry.COLUMN_CHOOSEN_LANGUAGE_TEXT, text_trans);
+                contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSALATED_LANGUAGE, titleOfSecondLanguage);
+                contentValues.put(LanguageContract.LanguageEntry.COLUMN_TRANSLATED_LANGUAGE_TEXT, translate);
+                mDatabase.insert(LanguageContract.LanguageEntry.TABLE_NAME, null, contentValues);
+            }
+
+            //Close and disconnect
+            bufferedReader.close();
+            inputStream.close();
+            httpJsonConnection.disconnect();
+
+            //Making result human readable
+            translate = jsonStringBuilder.toString().trim();
+
+            Log.d("Translation Result:", translate);
+            return jsonStringBuilder.toString().trim();
+
+        } catch (
+                MalformedURLException e) {
+            e.printStackTrace();
+        } catch (
+                IOException e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     private void onPostExecute() {
+
         progressBar.setVisibility(View.GONE);
         textViewFlags.setVisibility(View.VISIBLE);
         mAdapter.addItems(language);
@@ -514,7 +552,6 @@ public class MainFragment extends Fragment implements View.OnClickListener, Radi
         } else {
             return false;
         }
-
     }
 
     @Override
